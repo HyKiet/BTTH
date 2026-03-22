@@ -16,8 +16,26 @@ public class EnemySpawner : MonoBehaviour
 
     void Start()
     {
-        // Tự động tìm SpawnPoints
+        // Tự động tìm SpawnPoints nếu mảng trống hoặc chứa phần tử null
+        bool needsSpawnPoints = false;
         if (spawnPoints == null || spawnPoints.Length == 0)
+        {
+            needsSpawnPoints = true;
+        }
+        else
+        {
+            foreach (var pt in spawnPoints)
+            {
+                if (pt == null)
+                {
+                    needsSpawnPoints = true;
+                    Debug.LogWarning("[EnemySpawner] Có SpawnPoint bị để trống (null) trong Inspector. Sẽ thử tự động tìm lại!");
+                    break;
+                }
+            }
+        }
+
+        if (needsSpawnPoints)
         {
             string[] spawnNames = {
                 "SpawnPointLeft", "SpawnPointRight",
@@ -30,8 +48,11 @@ public class EnemySpawner : MonoBehaviour
                 var go = GameObject.Find(n);
                 if (go != null) list.Add(go.transform);
             }
-            spawnPoints = list.ToArray();
-            Debug.Log($"[EnemySpawner] Found {spawnPoints.Length} spawn points.");
+            
+            if (list.Count > 0)
+                spawnPoints = list.ToArray();
+                
+            Debug.Log($"[EnemySpawner] Auto-Found {spawnPoints?.Length ?? 0} spawn points.");
         }
 
         // Tự động load Prefab Enemy từ AssetDatabase nếu chưa gán
@@ -74,8 +95,10 @@ public class EnemySpawner : MonoBehaviour
         
         while (true)
         {
-            // Đếm số lượng enemy hiện tại
-            int currentCount = FindObjectsByType<EnemyController>(FindObjectsSortMode.None).Length;
+            // Đếm số lượng enemy hiện tại (cả melee + ranged)
+            int meleeCount = FindObjectsByType<EnemyController>(FindObjectsSortMode.None).Length;
+            int rangedCount = FindObjectsByType<EnemyRangedController>(FindObjectsSortMode.None).Length;
+            int currentCount = meleeCount + rangedCount;
             
             if (currentCount < maxEnemiesAtOnce)
             {

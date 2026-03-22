@@ -13,6 +13,7 @@ public class WeaponManager : MonoBehaviour
         [Header("Animation Sprites")]
         public Sprite[] idleSprites;
         public Sprite[] walkSprites;
+        public Sprite[] deathSprites;
     }
 
     public List<WeaponInfo> weapons = new List<WeaponInfo>();
@@ -46,6 +47,8 @@ public class WeaponManager : MonoBehaviour
             playerAnimation.idleSprites = w.idleSprites;
         if (w.walkSprites != null && w.walkSprites.Length > 0)
             playerAnimation.walkSprites = w.walkSprites;
+        if (w.deathSprites != null && w.deathSprites.Length > 0)
+            playerAnimation.deathSprites = w.deathSprites;
     }
 
     public void TriggerShoot()
@@ -67,6 +70,9 @@ public class WeaponManager : MonoBehaviour
             Vector2 direction = facingRight ? Vector2.right : Vector2.left;
             bulletScript.SetDirection(direction);
         }
+        
+        // Sound effect
+        if (AudioManager.Instance != null) AudioManager.Instance.PlayShoot();
     }
 
     public void SwitchWeapon()

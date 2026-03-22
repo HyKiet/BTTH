@@ -11,18 +11,55 @@ public class PlayerController : MonoBehaviour
     [Header("Health Settings")]
     public int maxHealth = 100;
     private int currentHealth;
+    private bool isDead = false;
+
+    [Header("Map Boundaries")]
+    public SpriteRenderer mapBackground;
+    private float minX, maxX, minY, maxY;
 
     private WeaponManager weaponManager;
+    private PlayerAnimation playerAnim;
 
     void Start()
     {
         rb = GetComponent<Rigidbody2D>();
+        if (rb != null)
+        {
+            rb.freezeRotation = true;
+            rb.gravityScale = 0f;
+        }
         weaponManager = GetComponent<WeaponManager>();
+        playerAnim = GetComponent<PlayerAnimation>();
         currentHealth = maxHealth;
+
+        if (mapBackground == null)
+        {
+            GameObject bgObj = GameObject.Find("Background");
+            if (bgObj != null)
+                mapBackground = bgObj.GetComponent<SpriteRenderer>();
+        }
+
+        if (mapBackground != null)
+        {
+            float playerWidth = GetComponent<SpriteRenderer>().bounds.extents.x;
+            float playerHeight = GetComponent<SpriteRenderer>().bounds.extents.y;
+
+            minX = mapBackground.bounds.min.x + playerWidth;
+            maxX = mapBackground.bounds.max.x - playerWidth;
+            minY = mapBackground.bounds.min.y + playerHeight;
+            maxY = mapBackground.bounds.max.y - playerHeight;
+        }
+        else
+        {
+            minX = -8.5f; maxX = 8.5f;
+            minY = -4.5f; maxY = 4.5f;
+        }
     }
 
     void Update()
     {
+        if (isDead) return;
+
         movement = Vector2.zero;
         bool shootPressed = false;
         bool switchWeaponPressed = false;
@@ -56,7 +93,18 @@ public class PlayerController : MonoBehaviour
 
     void FixedUpdate()
     {
+        if (isDead)
+        {
+            rb.linearVelocity = Vector2.zero;
+            return;
+        }
+
         rb.linearVelocity = movement.normalized * moveSpeed;
+
+        Vector2 clampedPosition = rb.position;
+        clampedPosition.x = Mathf.Clamp(clampedPosition.x, minX, maxX);
+        clampedPosition.y = Mathf.Clamp(clampedPosition.y, minY, maxY);
+        rb.position = clampedPosition;
     }
 
     void Flip()
@@ -71,6 +119,8 @@ public class PlayerController : MonoBehaviour
 
     public void TakeDamage(int damage)
     {
+        if (isDead) return;
+        
         currentHealth -= damage;
         currentHealth = Mathf.Clamp(currentHealth, 0, maxHealth);
         if (GameManager.Instance != null)
@@ -80,8 +130,40 @@ public class PlayerController : MonoBehaviour
 
     void Die()
     {
+        isDead = true;
+        
+        // Tắt input & movement
+        rb.linearVelocity = Vector2.zero;
+        
+        // Tắt weapon
+        if (weaponManager != null) weaponManager.enabled = false;
+        
+        // Tắt collider để enemy không còn tấn công
+        Collider2D col = GetComponent<Collider2D>();
+        if (col != null) col.enabled = false;
+        
+        // ═══ Phát animation chết ═══
+        if (playerAnim != null && playerAnim.deathSprites != null && playerAnim.deathSprites.Length > 0)
+        {
+            playerAnim.PlayDeath(() =>
+            {
+                // Callback khi animation chết xong
+                OnDeathAnimationComplete();
+            });
+        }
+        else
+        {
+            // Không có death sprites → xử lý ngay
+            SpriteRenderer sr = GetComponent<SpriteRenderer>();
+            if (sr != null) sr.enabled = false;
+            OnDeathAnimationComplete();
+        }
+    }
+
+    void OnDeathAnimationComplete()
+    {
+        // Hiện Game Over UI
         if (GameManager.Instance != null)
             GameManager.Instance.GameOver();
-        Destroy(gameObject);
     }
 }
