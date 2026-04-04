@@ -1,5 +1,9 @@
 using UnityEngine;
 
+/// <summary>
+/// Player Controller — movement, health, damage, death.
+/// Tối ưu: cache SpriteRenderer, dùng cached WaitForSeconds.
+/// </summary>
 public class PlayerController : MonoBehaviour
 {
     [Header("Movement Settings")]
@@ -14,11 +18,24 @@ public class PlayerController : MonoBehaviour
     private bool isDead = false;
 
     [Header("Map Boundaries")]
-    public SpriteRenderer mapBackground;
+    [Tooltip("Y position of the bottom walkable edge (floor)")]
+    public float boundaryMinY = -4.5f;
+    [Tooltip("Y position of the top walkable edge (ceiling)")]
+    public float boundaryMaxY = -1.5f;
+    [Tooltip("X position of the left boundary")]
+    public float boundaryMinX = -50f;
+    [Tooltip("X position of the right boundary")]
+    public float boundaryMaxX = 50f;
     private float minX, maxX, minY, maxY;
 
+    // ── Cached Components ──
     private WeaponManager weaponManager;
     private PlayerAnimation playerAnim;
+    private SpriteRenderer sr;
+    private Collider2D col;
+
+    // ── Cached WaitForSeconds ──
+    private static readonly WaitForSeconds hitFlashWait = new WaitForSeconds(0.15f);
 
     void Start()
     {
@@ -30,30 +47,26 @@ public class PlayerController : MonoBehaviour
         }
         weaponManager = GetComponent<WeaponManager>();
         playerAnim = GetComponent<PlayerAnimation>();
+        sr = GetComponent<SpriteRenderer>();
+        col = GetComponent<Collider2D>();
         currentHealth = maxHealth;
 
-        if (mapBackground == null)
-        {
-            GameObject bgObj = GameObject.Find("Background");
-            if (bgObj != null)
-                mapBackground = bgObj.GetComponent<SpriteRenderer>();
-        }
+        // Khóa cứng giá trị để cho dù sếp quên chỉnh trên Editor thì Code vẫn auto sửa lại
+        // Mở rộng đường đi cho vừa mép mép hình nền
+        boundaryMinY = -3.8f;   // Chân đường mấp mé dưới cùng màn hình
+        boundaryMaxY = 0.0f;    // Sát vạch kẻ vỉa hè phía trên
 
-        if (mapBackground != null)
-        {
-            float playerWidth = GetComponent<SpriteRenderer>().bounds.extents.x;
-            float playerHeight = GetComponent<SpriteRenderer>().bounds.extents.y;
+        // Giới hạn trái/phải — vừa khít vùng chơi (3 tile sàn, mỗi tile ~32.6 units)
+        boundaryMinX = -35f;
+        boundaryMaxX = 35f;
 
-            minX = mapBackground.bounds.min.x + playerWidth;
-            maxX = mapBackground.bounds.max.x - playerWidth;
-            minY = mapBackground.bounds.min.y + playerHeight;
-            maxY = mapBackground.bounds.max.y - playerHeight;
-        }
-        else
-        {
-            minX = -8.5f; maxX = 8.5f;
-            minY = -4.5f; maxY = 4.5f;
-        }
+        // Set movement boundaries
+        float playerWidth = sr != null ? sr.bounds.extents.x : 0.5f;
+        float playerHeight = sr != null ? sr.bounds.extents.y : 0.5f;
+        minX = boundaryMinX + playerWidth;
+        maxX = boundaryMaxX - playerWidth;
+        minY = boundaryMinY + playerHeight;
+        maxY = boundaryMaxY - playerHeight;
     }
 
     void Update()
@@ -62,6 +75,7 @@ public class PlayerController : MonoBehaviour
 
         movement = Vector2.zero;
         bool shootPressed = false;
+        bool shootHeld = false;
         bool switchWeaponPressed = false;
 
         if (UnityEngine.InputSystem.Keyboard.current != null)
@@ -72,23 +86,18 @@ public class PlayerController : MonoBehaviour
             if (UnityEngine.InputSystem.Keyboard.current.wKey.isPressed) movement.y += 1f;
 
             shootPressed = UnityEngine.InputSystem.Keyboard.current.kKey.wasPressedThisFrame;
+            shootHeld = UnityEngine.InputSystem.Keyboard.current.kKey.isPressed;
             switchWeaponPressed = UnityEngine.InputSystem.Keyboard.current.qKey.wasPressedThisFrame;
         }
 
-        if (movement.x > 0 && !isFacingRight)
-            Flip();
-        else if (movement.x < 0 && isFacingRight)
-            Flip();
+        if (movement.x > 0 && !isFacingRight) Flip();
+        else if (movement.x < 0 && isFacingRight) Flip();
 
-        if (shootPressed)
-        {
-            if (weaponManager != null) weaponManager.TriggerShoot();
-        }
+        if (weaponManager != null)
+            weaponManager.TriggerShoot(shootPressed, shootHeld);
 
-        if (switchWeaponPressed)
-        {
-            if (weaponManager != null) weaponManager.SwitchWeapon();
-        }
+        if (switchWeaponPressed && weaponManager != null)
+            weaponManager.SwitchWeapon();
     }
 
     void FixedUpdate()
@@ -120,41 +129,68 @@ public class PlayerController : MonoBehaviour
     public void TakeDamage(int damage)
     {
         if (isDead) return;
-        
+
         currentHealth -= damage;
         currentHealth = Mathf.Clamp(currentHealth, 0, maxHealth);
         if (GameManager.Instance != null)
             GameManager.Instance.UpdateHP(currentHealth, maxHealth);
+
+        if (AudioManager.Instance != null)
+            AudioManager.Instance.PlayHit();
+
+        StartCoroutine(HitFlash());
+
         if (currentHealth <= 0) Die();
+    }
+
+    public void Heal(int amount)
+    {
+        if (isDead) return;
+
+        currentHealth += amount;
+        currentHealth = Mathf.Clamp(currentHealth, 0, maxHealth);
+        
+        if (GameManager.Instance != null)
+            GameManager.Instance.UpdateHP(currentHealth, maxHealth);
+
+        // Hiệu ứng nháy xanh khi hồi máu (tùy chọn)
+        StartCoroutine(HealFlash());
+    }
+
+    System.Collections.IEnumerator HealFlash()
+    {
+        if (sr != null)
+        {
+            sr.color = Color.green;
+            yield return hitFlashWait; // Dùng chung cache thời gian
+            if (sr != null) sr.color = Color.white;
+        }
+    }
+
+    System.Collections.IEnumerator HitFlash()
+    {
+        if (sr != null)
+        {
+            sr.color = Color.red;
+            yield return hitFlashWait; // Cached WaitForSeconds
+            if (sr != null) sr.color = Color.white;
+        }
     }
 
     void Die()
     {
         isDead = true;
-        
-        // Tắt input & movement
         rb.linearVelocity = Vector2.zero;
-        
-        // Tắt weapon
+
         if (weaponManager != null) weaponManager.enabled = false;
-        
-        // Tắt collider để enemy không còn tấn công
-        Collider2D col = GetComponent<Collider2D>();
         if (col != null) col.enabled = false;
-        
-        // ═══ Phát animation chết ═══
+
         if (playerAnim != null && playerAnim.deathSprites != null && playerAnim.deathSprites.Length > 0)
         {
-            playerAnim.PlayDeath(() =>
-            {
-                // Callback khi animation chết xong
-                OnDeathAnimationComplete();
-            });
+            playerAnim.PlayDeath(() => OnDeathAnimationComplete());
         }
         else
         {
-            // Không có death sprites → xử lý ngay
-            SpriteRenderer sr = GetComponent<SpriteRenderer>();
             if (sr != null) sr.enabled = false;
             OnDeathAnimationComplete();
         }
@@ -162,7 +198,6 @@ public class PlayerController : MonoBehaviour
 
     void OnDeathAnimationComplete()
     {
-        // Hiện Game Over UI
         if (GameManager.Instance != null)
             GameManager.Instance.GameOver();
     }

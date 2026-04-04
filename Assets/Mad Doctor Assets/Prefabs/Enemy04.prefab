@@ -212,7 +212,12 @@ MonoBehaviour:
   firePoint: {fileID: 0}
   projectileSpeed: 10
   currentHealth: 0
+  electricHitSprites:
+  - {fileID: 8456692762198608987, guid: 16cec6b81da49a24892f22018d78367a, type: 3}
+  - {fileID: -5818552477790524821, guid: 73845668fa7859e40a2214c7550122be, type: 3}
+  - {fileID: -8889253294219686328, guid: e295449dc37c5364289f176bd5f84105, type: 3}
   attackCooldown: 1.25
+  poolTag: 
 --- !u!1 &4124597200526123891
 GameObject:
   m_ObjectHideFlags: 0

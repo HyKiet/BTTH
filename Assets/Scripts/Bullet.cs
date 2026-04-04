@@ -1,208 +1,182 @@
 using UnityEngine;
 
+/// <summary>
+/// Đạn player và đạn Enemy — Thiết kế lại hoàn toàn (Sweep Raycast & Fallback).
+/// 100% không xuyên mục tiêu, chống Missing Script.
+/// </summary>
 public class Bullet : MonoBehaviour
 {
     public float speed = 10f;
     public int damage = 20;
     public float lifeTime = 3f;
-    
-    [Tooltip("Bán kính detect va chạm thủ công (backup cho trigger)")]
-    public float hitRadius = 0.3f;
-    
-    private Rigidbody2D rb;
+    public float hitRadius = 0.5f;
+
     private Vector2 moveDirection;
+    private SpriteRenderer sr;
     private Collider2D myCollider;
     private bool hasHit = false;
+    [HideInInspector] public bool isEnemyBullet = false;
 
-    void Start()
+    public const string POOL_TAG = "PlayerBullet";
+
+    void Awake()
     {
-        rb = GetComponent<Rigidbody2D>();
-        if (rb != null)
-        {
-            rb.gravityScale = 0f;
-            rb.bodyType = RigidbodyType2D.Dynamic;
-            rb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
-            rb.constraints = RigidbodyConstraints2D.FreezeRotation;
-            rb.mass = 0.001f;
-        }
-        
+        sr = GetComponent<SpriteRenderer>();
         myCollider = GetComponent<Collider2D>();
-        if (myCollider != null) myCollider.isTrigger = true;
-
-        // Bỏ qua collision với Player để đạn không tự bắn chính mình
-        IgnorePlayerCollision();
-
-        Destroy(gameObject, lifeTime);
+        // Không thao tác với RigidBody nữa nhằm tự kiểm soát tuyệt đối đường bay.
     }
 
-    void IgnorePlayerCollision()
+    void OnEnable()
     {
-        GameObject playerObj = GameObject.FindGameObjectWithTag("Player");
-        if (playerObj == null) playerObj = GameObject.Find("Player");
-        if (playerObj != null)
-        {
-            Collider2D playerCol = playerObj.GetComponent<Collider2D>();
-            if (playerCol != null && myCollider != null)
-            {
-                Physics2D.IgnoreCollision(myCollider, playerCol);
-            }
-        }
-    }
-
-    void FixedUpdate()
-    {
-        if (hasHit) return;
+        hasHit = false;
+        isEnemyBullet = false;
         
-        if (rb != null)
-            rb.linearVelocity = moveDirection * speed;
-    }
+        if (sr != null) sr.enabled = true;
+        if (myCollider != null) myCollider.enabled = true;
 
-    void Update()
-    {
-        if (hasHit || isEnemyBullet) return;
-        
-        // ═══ BACKUP: Raycast + Overlap detection ═══
-        // Dùng OverlapCircle để detect va chạm thủ công, phòng trường hợp
-        // OnTriggerEnter2D không fire (do physics timing, fast moving, etc.)
-        DetectEnemyManually();
-    }
-
-    void DetectEnemyManually()
-    {
-        Collider2D[] hits = Physics2D.OverlapCircleAll(transform.position, hitRadius);
-        foreach (var hit in hits)
-        {
-            if (hit == myCollider) continue; // Bỏ qua chính mình
-            if (hit.GetComponent<Bullet>() != null || hit.GetComponent<EnemyBullet>() != null) continue;
-            if (hit.GetComponent<PlayerController>() != null) continue;
-
-            EnemyController enemy = hit.GetComponent<EnemyController>();
-            if (enemy == null) enemy = hit.GetComponentInParent<EnemyController>();
-            if (enemy != null)
-            {
-                Debug.Log($"[Bullet] OverlapCircle HIT EnemyController '{hit.name}'! Dmg={damage}");
-                ApplyDamageToEnemy(enemy);
-                return;
-            }
-
-            EnemyRangedController ranged = hit.GetComponent<EnemyRangedController>();
-            if (ranged == null) ranged = hit.GetComponentInParent<EnemyRangedController>();
-            if (ranged != null)
-            {
-                Debug.Log($"[Bullet] OverlapCircle HIT EnemyRangedController '{hit.name}'! Dmg={damage}");
-                ApplyDamageToRanged(ranged);
-                return;
-            }
-        }
+        CancelInvoke();
+        Invoke(nameof(ReturnToPool), lifeTime);
     }
 
     public void SetDirection(Vector2 direction)
     {
         moveDirection = direction.normalized;
-        
+
         float angle = Mathf.Atan2(moveDirection.y, moveDirection.x) * Mathf.Rad2Deg;
         transform.rotation = Quaternion.Euler(0, 0, angle);
-        
+
         Vector3 scaler = transform.localScale;
         if (moveDirection.x < 0)
         {
-             scaler.y = -Mathf.Abs(scaler.y);
-             scaler.x = Mathf.Abs(scaler.x);
+            scaler.y = -Mathf.Abs(scaler.y);
+            scaler.x = Mathf.Abs(scaler.x);
         }
         else
         {
-             scaler.y = Mathf.Abs(scaler.y);
-             scaler.x = Mathf.Abs(scaler.x);
+            scaler.y = Mathf.Abs(scaler.y);
+            scaler.x = Mathf.Abs(scaler.x);
         }
         transform.localScale = scaler;
     }
 
-    [HideInInspector] public bool isEnemyBullet = false;
-
-    // ── Trigger detection ────────────────────────────────────────
-    void OnTriggerEnter2D(Collider2D hitInfo)
+    void Update()
     {
         if (hasHit) return;
-        Debug.Log($"[Bullet] OnTriggerEnter2D: '{hitInfo.gameObject.name}' tag='{hitInfo.tag}'");
-        HandleHit(hitInfo.gameObject);
+
+        float distThisFrame = speed * Time.deltaTime;
+        Vector2 currentPos = transform.position;
+
+        // Quét tia dạng CircleCast suốt quãng đường di chuyển của frame này
+        // Khoảng cách quét = distThisFrame. Nếu phát hiện trúng, xử lý ngay.
+        RaycastHit2D[] hits = Physics2D.CircleCastAll(currentPos, hitRadius, moveDirection, distThisFrame);
+
+        foreach (var hit in hits)
+        {
+            if (hit.collider != null && hit.collider.gameObject != this.gameObject)
+            {
+                ProcessHit(hit.collider.gameObject);
+                if (hasHit) break;
+            }
+        }
+
+        // Tự di chuyển viên đạn
+        if (!hasHit)
+        {
+            transform.Translate(moveDirection * distThisFrame, Space.World);
+        }
     }
 
-    // ── Collision detection (fallback) ──
-    void OnCollisionEnter2D(Collision2D collision)
+    // Safety fallback (Đề phòng trường hợp viên đạn spawn ngay bên trong mục tiêu và bị CircleCast bỏ qua khe hẹp)
+    void OnTriggerEnter2D(Collider2D other)
     {
         if (hasHit) return;
-        Debug.Log($"[Bullet] OnCollisionEnter2D: '{collision.gameObject.name}' tag='{collision.gameObject.tag}'");
-        HandleHit(collision.gameObject);
+        ProcessHit(other.gameObject);
     }
 
-    void HandleHit(GameObject hitObject)
+    void OnCollisionEnter2D(Collision2D coll)
     {
-        // Bỏ qua đạn khác
-        if (hitObject.GetComponent<Bullet>() != null || hitObject.GetComponent<EnemyBullet>() != null)
+        if (hasHit) return;
+        ProcessHit(coll.gameObject);
+    }
+
+    void ProcessHit(GameObject hitObj)
+    {
+        if (hasHit) return;
+
+        // Bỏ qua các loại đạn khác
+        if (hitObj.GetComponent<Bullet>() != null || hitObj.GetComponent<EnemyBullet>() != null)
             return;
 
+        // Xử lý đạn của quái vật bắn Player
         if (isEnemyBullet)
         {
-            if (hitObject.CompareTag("Enemy")) return;
-            
-            PlayerController player = hitObject.GetComponent<PlayerController>();
+            if (hitObj.CompareTag("Enemy")) return;
+
+            PlayerController player = hitObj.GetComponent<PlayerController>();
             if (player != null)
             {
                 player.TakeDamage(damage);
+                hasHit = true;
                 DestroyBullet();
             }
             return;
         }
 
-        // ── Đạn player: check enemy ──
-        EnemyController enemy = hitObject.GetComponent<EnemyController>();
-        if (enemy == null) enemy = hitObject.GetComponentInParent<EnemyController>();
-        if (enemy == null) enemy = hitObject.GetComponentInChildren<EnemyController>();
-        if (enemy != null)
+        // Xử lý đạn Player bắn quái vật
+        bool isEnemyTag = hitObj.CompareTag("Enemy");
+
+        EnemyController ec = hitObj.GetComponent<EnemyController>();
+        if (ec == null) ec = hitObj.GetComponentInParent<EnemyController>();
+
+        EnemyRangedController erc = hitObj.GetComponent<EnemyRangedController>();
+        if (erc == null) erc = hitObj.GetComponentInParent<EnemyRangedController>();
+
+        // Trường hợp 1: Có Component Enemy Scripts chuẩn chỉ -> Gây damage và hủy
+        if (ec != null)
         {
-            Debug.Log($"[Bullet] Trigger HIT EnemyController '{hitObject.name}'! Dmg={damage}");
-            ApplyDamageToEnemy(enemy);
-            return;
-        }
-        
-        EnemyRangedController rangedEnemy = hitObject.GetComponent<EnemyRangedController>();
-        if (rangedEnemy == null) rangedEnemy = hitObject.GetComponentInParent<EnemyRangedController>();
-        if (rangedEnemy == null) rangedEnemy = hitObject.GetComponentInChildren<EnemyRangedController>();
-        if (rangedEnemy != null)
-        {
-            Debug.Log($"[Bullet] Trigger HIT EnemyRangedController '{hitObject.name}'! Dmg={damage}");
-            ApplyDamageToRanged(rangedEnemy);
+            hasHit = true;
+            ec.TakeDamage(damage);
+            DestroyBullet();
             return;
         }
 
-        // Nếu chạm player → bỏ qua
-        if (hitObject.GetComponent<PlayerController>() != null) return;
-    }
+        if (erc != null)
+        {
+            hasHit = true;
+            erc.TakeDamage(damage);
+            DestroyBullet();
+            return;
+        }
 
-    void ApplyDamageToEnemy(EnemyController enemy)
-    {
-        if (hasHit) return;
-        hasHit = true;
-        enemy.TakeDamage(damage);
-        DestroyBullet();
-    }
+        // Trường hợp 2: Bị dính lỗi Missing Scripts trên Enemy Prefab!
+        // Giải quyết lỗi mất liên kết của Unity bằng lệnh SendMessage dự phòng.
+        if (isEnemyTag)
+        {
+            hitObj.SendMessage("TakeDamage", damage, SendMessageOptions.DontRequireReceiver);
+            hasHit = true;
+            DestroyBullet();
+            Debug.LogWarning($"[HỆ THỐNG BULLET FALLBACK] Cứu 1 rớt Damage lên {hitObj.name} do lỗi Missing Script trên GameObject này!");
+            return;
+        }
 
-    void ApplyDamageToRanged(EnemyRangedController enemy)
-    {
-        if (hasHit) return;
-        hasHit = true;
-        enemy.TakeDamage(damage);
-        DestroyBullet();
+        // Nếu bắn trúng chính người chơi -> bỏ qua
+        if (hitObj.GetComponent<PlayerController>() != null) return;
     }
 
     void DestroyBullet()
     {
-        // Tắt visual + collider ngay lập tức
-        SpriteRenderer sr = GetComponent<SpriteRenderer>();
         if (sr != null) sr.enabled = false;
         if (myCollider != null) myCollider.enabled = false;
-        if (rb != null) rb.linearVelocity = Vector2.zero;
-        
-        Destroy(gameObject, 0.05f);
+        hasHit = true;
+        ReturnToPool();
+    }
+
+    void ReturnToPool()
+    {
+        CancelInvoke();
+        if (ObjectPool.Instance != null)
+            ObjectPool.Instance.Return(gameObject);
+        else
+            gameObject.SetActive(false);
     }
 }

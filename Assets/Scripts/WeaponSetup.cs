@@ -1,7 +1,8 @@
 using UnityEngine;
 
 /// <summary>
-/// Script chạy một lần trong Editor để gán 10 bộ Sprites súng vào WeaponManager.
+/// Script chạy một lần trong Editor để gán 10 bộ vũ khí (KHÔNG gán sprites).
+/// Sprites sẽ được WeaponManager lazy-load từ Resources lúc runtime.
 /// Gắn vào Player và chọn "Setup All 10 Weapons" từ context menu.
 /// </summary>
 public class WeaponSetup : MonoBehaviour
@@ -13,7 +14,6 @@ public class WeaponSetup : MonoBehaviour
         WeaponManager wm = GetComponent<WeaponManager>();
         if (wm == null) { Debug.LogError("WeaponManager not found!"); return; }
 
-        string basePath = "Assets/Mad Doctor Assets/Sprites/Mad Doctor - Main Character";
         string bulletBasePath = "Assets/Mad Doctor Assets/Sprites/Bullets";
 
         // Bullet prefabs
@@ -47,7 +47,6 @@ public class WeaponSetup : MonoBehaviour
 
         for (int gunIdx = 1; gunIdx <= 10; gunIdx++)
         {
-            string gunFolder = $"Gun{gunIdx:D2}";
             var weapon = new WeaponManager.WeaponInfo();
             weapon.weaponName = weaponNames[gunIdx - 1];
             weapon.fireRate = fireRates[gunIdx - 1];
@@ -55,33 +54,19 @@ public class WeaponSetup : MonoBehaviour
             // Bullet prefab
             weapon.bulletPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(bulletPaths[gunIdx - 1]);
 
-            // Weapon icon (bullet sprite)
+            // Weapon icon (bullet sprite) — chỉ 1 sprite nhỏ cho icon
             weapon.weaponIcon = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>($"{bulletBasePath}/{bulletIcons[gunIdx - 1]}");
 
-            // Idle sprites
-            var idleList = new System.Collections.Generic.List<Sprite>();
-            for (int f = 0; f <= 13; f++)
-            {
-                Sprite s = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>($"{basePath}/{gunFolder}/Idle/Idle_{f:D2}.png");
-                if (s != null) idleList.Add(s);
-            }
-            weapon.idleSprites = idleList.ToArray();
-
-            // Walk sprites
-            var walkList = new System.Collections.Generic.List<Sprite>();
-            for (int f = 0; f <= 13; f++)
-            {
-                Sprite s = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>($"{basePath}/{gunFolder}/Walk/Walk_{f:D2}.png");
-                if (s != null) walkList.Add(s);
-            }
-            weapon.walkSprites = walkList.ToArray();
+            // KHÔNG gán idleSprites/walkSprites/deathSprites ở đây!
+            // WeaponManager sẽ lazy-load từ Resources khi cần.
+            // Điều này GIẢM ~90% memory vì không serialize 280+ sprites vào scene.
 
             wm.weapons.Add(weapon);
-            Debug.Log($"[{weapon.weaponName}] Idle:{idleList.Count} Walk:{walkList.Count} sprites loaded.");
+            Debug.Log($"[{weapon.weaponName}] Configured (sprites will lazy-load from Resources).");
         }
 
         UnityEditor.EditorUtility.SetDirty(wm);
-        Debug.Log("All 10 weapons configured on WeaponManager!");
+        Debug.Log("All 10 weapons configured on WeaponManager! Sprites will load from Resources at runtime.");
     }
 #endif
 }

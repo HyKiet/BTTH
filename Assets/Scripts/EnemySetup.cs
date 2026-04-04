@@ -61,6 +61,23 @@ public class EnemySetup : MonoBehaviour
     };
 
 #if UNITY_EDITOR
+    [UnityEditor.MenuItem("Tools/Mad Doctor/Create Enemy Prefabs")]
+    public static void CreateEnemyPrefabsMenu()
+    {
+        EnemySetup setup = FindFirstObjectByType<EnemySetup>();
+        if (setup == null)
+        {
+            GameObject obj = new GameObject("TempEnemySetup");
+            setup = obj.AddComponent<EnemySetup>();
+            setup.CreateEnemyPrefabs();
+            DestroyImmediate(obj);
+        }
+        else
+        {
+            setup.CreateEnemyPrefabs();
+        }
+    }
+
     [ContextMenu("Create Enemy Prefabs")]
     public void CreateEnemyPrefabs()
     {

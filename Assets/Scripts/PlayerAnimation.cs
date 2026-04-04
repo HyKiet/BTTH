@@ -61,7 +61,8 @@ public class PlayerAnimation : MonoBehaviour
             return;
         }
 
-        timer += Time.deltaTime;
+        // Dùng unscaledDeltaTime để animation chết vẫn chạy khi timeScale = 0
+        timer += Time.unscaledDeltaTime;
         if (timer >= frameRate)
         {
             timer -= frameRate;

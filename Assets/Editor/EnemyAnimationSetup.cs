@@ -26,31 +26,32 @@ public class EnemyAnimationSetup : EditorWindow
         for (int i = 0; i < enemyFolders.Length; i++)
         {
             string eFolder = enemyFolders[i];
-            string pName = prefabNames[i];
-            string eAnimFolder = animBaseFolder + "/" + eFolder;
+            string pName = "Enemy0" + (i + 1);
+            if (i == 0) pName = "Enemy_1";
 
-            if (!AssetDatabase.IsValidFolder(eAnimFolder))
-                AssetDatabase.CreateFolder(animBaseFolder, eFolder);
+            string eAnimFolder = animBaseFolder + "/" + eFolder;
+            if (!Directory.Exists(eAnimFolder)) Directory.CreateDirectory(eAnimFolder);
 
             // Create clips
             AnimationClip idleClip = CreateClip(spriteBaseFolder + "/" + eFolder + "/Idle", eAnimFolder + "/Idle.anim", true);
             AnimationClip walkClip = CreateClip(spriteBaseFolder + "/" + eFolder + "/Walk", eAnimFolder + "/Walk.anim", true);
             AnimationClip hitClip = CreateClip(spriteBaseFolder + "/" + eFolder + "/Hit", eAnimFolder + "/Hit.anim", false);
+            if (hitClip == null) hitClip = walkClip; // Fallback for enemies without Hit folder
             AnimationClip getHitClip = CreateClip(spriteBaseFolder + "/" + eFolder + "/Get Hit", eAnimFolder + "/GetHit.anim", false);
             AnimationClip deathClip = CreateClip(spriteBaseFolder + "/" + eFolder + "/Death", eAnimFolder + "/Death.anim", false);
 
+            if (idleClip == null || walkClip == null || hitClip == null || getHitClip == null || deathClip == null)
+            {
+                Debug.LogWarning("Missing animations for " + eFolder);
+            }
+
             // Create Controller
-            AnimatorController controller = AnimatorController.CreateAnimatorControllerAtPath(eAnimFolder + "/" + pName + "_Controller.controller");
+            string controllerPath = eAnimFolder + "/" + eFolder + " Controller.controller";
+            AnimatorController controller = AnimatorController.CreateAnimatorControllerAtPath(controllerPath);
 
-            // Add Parameters
-            controller.AddParameter("isWalking", AnimatorControllerParameterType.Bool);
-            controller.AddParameter("Attack", AnimatorControllerParameterType.Trigger);
-            controller.AddParameter("GetHit", AnimatorControllerParameterType.Trigger);
-            controller.AddParameter("Die", AnimatorControllerParameterType.Trigger);
-
-            // Setup States
             AnimatorStateMachine rootStateMachine = controller.layers[0].stateMachine;
 
+            // States
             AnimatorState idleState = rootStateMachine.AddState("Idle");
             idleState.motion = idleClip;
 
@@ -63,39 +64,45 @@ public class EnemyAnimationSetup : EditorWindow
             AnimatorState getHitState = rootStateMachine.AddState("GetHit");
             getHitState.motion = getHitClip;
 
-            AnimatorState deathState = rootStateMachine.AddState("Death");
-            deathState.motion = deathClip;
+            // Parameters
+            controller.AddParameter("isWalking", AnimatorControllerParameterType.Bool);
+            controller.AddParameter("Attack", AnimatorControllerParameterType.Trigger);
+            controller.AddParameter("GetHit", AnimatorControllerParameterType.Trigger);
+            controller.AddParameter("Die", AnimatorControllerParameterType.Trigger);
 
-            // Setup Transitions
+            // Transitions
             // Idle <-> Walk
-            var idleToWalk = idleState.AddTransition(walkState);
+            AnimatorStateTransition idleToWalk = idleState.AddTransition(walkState);
             idleToWalk.AddCondition(AnimatorConditionMode.If, 0, "isWalking");
             idleToWalk.hasExitTime = false;
 
-            var walkToIdle = walkState.AddTransition(idleState);
+            AnimatorStateTransition walkToIdle = walkState.AddTransition(idleState);
             walkToIdle.AddCondition(AnimatorConditionMode.IfNot, 0, "isWalking");
             walkToIdle.hasExitTime = false;
 
             // Any -> Attack (Hit)
-            var anyToAttack = rootStateMachine.AddAnyStateTransition(hitState);
-            anyToAttack.AddCondition(AnimatorConditionMode.If, 0, "Attack");
-            anyToAttack.hasExitTime = false;
-            
-            var attackExit = hitState.AddExitTransition();
-            attackExit.hasExitTime = true;
-            attackExit.exitTime = 1f;
+            AnimatorStateTransition anyToHit = rootStateMachine.AddAnyStateTransition(hitState);
+            anyToHit.AddCondition(AnimatorConditionMode.If, 0, "Attack");
+            anyToHit.hasExitTime = false;
+
+            // Hit -> Idle (After attack finishes)
+            AnimatorStateTransition hitToIdle = hitState.AddTransition(idleState);
+            hitToIdle.hasExitTime = true;
+            hitToIdle.exitTime = 1.0f;
 
             // Any -> GetHit
-            var anyToGetHit = rootStateMachine.AddAnyStateTransition(getHitState);
+            AnimatorStateTransition anyToGetHit = rootStateMachine.AddAnyStateTransition(getHitState);
             anyToGetHit.AddCondition(AnimatorConditionMode.If, 0, "GetHit");
             anyToGetHit.hasExitTime = false;
 
-            var getHitExit = getHitState.AddExitTransition();
-            getHitExit.hasExitTime = true;
-            getHitExit.exitTime = 1f;
+            // GetHit -> Idle
+            AnimatorStateTransition getHitToIdle = getHitState.AddTransition(idleState);
+            getHitToIdle.hasExitTime = true;
+            getHitToIdle.exitTime = 1.0f;
 
             // Any -> Die
-            var anyToDie = rootStateMachine.AddAnyStateTransition(deathState);
+            AnimatorStateTransition anyToDie = rootStateMachine.AddAnyStateTransition(rootStateMachine.AddState("Die"));
+            anyToDie.destinationState.motion = deathClip;
             anyToDie.AddCondition(AnimatorConditionMode.If, 0, "Die");
             anyToDie.hasExitTime = false;
 
@@ -107,7 +114,12 @@ public class EnemyAnimationSetup : EditorWindow
                 Animator anim = prefab.GetComponent<Animator>();
                 if (anim == null) anim = prefab.AddComponent<Animator>();
                 anim.runtimeAnimatorController = controller;
-                EditorUtility.SetDirty(prefab);
+                PrefabUtility.SavePrefabAsset(prefab);
+                Debug.Log($"Successfully assigned {controller.name} to {prefab.name}");
+            }
+            else
+            {
+                Debug.LogWarning($"Could not find Prefab at path: {prefabPath}");
             }
         }
         

@@ -5,7 +5,7 @@ using TMPro;
 
 /// <summary>
 /// Hệ thống Wave: spawn enemy theo từng đợt, độ khó tăng dần.
-/// Thay thế EnemySpawner đơn giản bằng wave-based spawning.
+/// Tối ưu: dùng Object Pool, track enemy count bằng biến thay vì FindObjectsByType.
 /// </summary>
 public class WaveManager : MonoBehaviour
 {
@@ -21,14 +21,15 @@ public class WaveManager : MonoBehaviour
     [Header("Wave Settings")]
     public int startEnemyCount = 3;
     public int enemiesPerWaveIncrease = 2;
-    public float spawnDelay = 0.5f;         // Delay giữa mỗi enemy trong wave
-    public float timeBetweenWaves = 5f;     // Thời gian nghỉ giữa các wave
+    public float spawnDelay = 0.5f;
+    public float timeBetweenWaves = 5f;
     public int maxEnemiesAtOnce = 15;
+    public int maxWaveEnemyCap = 40; // Hard cap enemy mỗi wave
 
     [Header("Difficulty Scaling")]
-    public float healthMultiplierPerWave = 0.1f;  // +10% HP mỗi wave
-    public float speedMultiplierPerWave = 0.05f;  // +5% speed mỗi wave
-    public float rangedStartWave = 3;             // Wave bắt đầu có enemy ranged
+    public float healthMultiplierPerWave = 0.1f;
+    public float speedMultiplierPerWave = 0.05f;
+    public float rangedStartWave = 3;
 
     [Header("UI")]
     public TextMeshProUGUI waveText;
@@ -37,8 +38,7 @@ public class WaveManager : MonoBehaviour
     private int currentWave = 0;
     private int enemiesAlive = 0;
     private int enemiesToSpawn = 0;
-    private bool isSpawning = false;
-    private bool waveActive = false;
+    private bool poolsRegistered = false;
 
     void Awake()
     {
@@ -51,13 +51,60 @@ public class WaveManager : MonoBehaviour
         AutoFindSpawnPoints();
         AutoLoadPrefabs();
         AutoFindUI();
+
+        // Chờ ObjectPool sẵn sàng rồi đăng ký pool cho enemies
+        StartCoroutine(InitAndStart());
+    }
+
+    IEnumerator InitAndStart()
+    {
+        // Chờ ObjectPool.Instance sẵn sàng
+        yield return null;
+        RegisterEnemyPools();
         StartCoroutine(StartNextWave());
+    }
+
+    void RegisterEnemyPools()
+    {
+        if (poolsRegistered || ObjectPool.Instance == null) return;
+
+        // Đăng ký pool cho từng loại enemy prefab
+        if (meleePrefabs != null)
+        {
+            foreach (var prefab in meleePrefabs)
+            {
+                if (prefab == null) continue;
+                string tag = "Enemy_" + prefab.name;
+                if (!ObjectPool.Instance.HasPool(tag))
+                    ObjectPool.Instance.RegisterPool(tag, prefab, 3, 15);
+            }
+        }
+
+        if (rangedPrefabs != null)
+        {
+            foreach (var prefab in rangedPrefabs)
+            {
+                if (prefab == null) continue;
+                string tag = "Enemy_" + prefab.name;
+                if (!ObjectPool.Instance.HasPool(tag))
+                    ObjectPool.Instance.RegisterPool(tag, prefab, 2, 10);
+            }
+        }
+
+        poolsRegistered = true;
     }
 
     void AutoFindSpawnPoints()
     {
-        if (spawnPoints != null && spawnPoints.Length > 0) return;
-        
+        if (spawnPoints != null && spawnPoints.Length > 0)
+        {
+            // Kiểm tra null entries
+            bool hasNull = false;
+            foreach (var pt in spawnPoints)
+                if (pt == null) { hasNull = true; break; }
+            if (!hasNull) return;
+        }
+
         string[] names = {
             "SpawnPointLeft", "SpawnPointRight",
             "SpawnPointTop", "SpawnPointBottom",
@@ -121,30 +168,31 @@ public class WaveManager : MonoBehaviour
 
     IEnumerator StartNextWave()
     {
-        // Chờ ban đầu
         yield return new WaitForSeconds(2f);
 
         while (true)
         {
+            // Kiểm tra game over
+            if (GameManager.Instance != null && GameManager.Instance.isGameOver)
+            {
+                yield return new WaitForSeconds(1f);
+                continue;
+            }
+
             currentWave++;
-            int totalEnemies = startEnemyCount + (currentWave - 1) * enemiesPerWaveIncrease;
+            int totalEnemies = Mathf.Min(
+                startEnemyCount + (currentWave - 1) * enemiesPerWaveIncrease,
+                maxWaveEnemyCap
+            );
             enemiesToSpawn = totalEnemies;
-            waveActive = true;
 
-            // Hiển thị Wave text
             UpdateWaveUI();
-
             yield return StartCoroutine(ShowWaveAnnouncement());
-
-            // Spawn từng enemy với delay
             yield return StartCoroutine(SpawnWaveEnemies(totalEnemies));
 
             // Chờ cho đến khi tất cả enemy trong wave bị tiêu diệt
             yield return new WaitUntil(() => enemiesAlive <= 0 && enemiesToSpawn <= 0);
 
-            waveActive = false;
-
-            // Nghỉ giữa wave
             yield return new WaitForSeconds(timeBetweenWaves);
         }
     }
@@ -168,23 +216,25 @@ public class WaveManager : MonoBehaviour
 
     IEnumerator SpawnWaveEnemies(int count)
     {
-        isSpawning = true;
-        
         for (int i = 0; i < count; i++)
         {
+            // Kiểm tra game over giữa chừng
+            if (GameManager.Instance != null && GameManager.Instance.isGameOver)
+                yield break;
+
             // Chờ nếu đã đạt max enemy cùng lúc
             while (enemiesAlive >= maxEnemiesAtOnce)
             {
+                if (GameManager.Instance != null && GameManager.Instance.isGameOver)
+                    yield break;
                 yield return new WaitForSeconds(0.5f);
             }
 
             SpawnOneEnemy();
             enemiesToSpawn--;
-            
+
             yield return new WaitForSeconds(spawnDelay);
         }
-        
-        isSpawning = false;
     }
 
     void SpawnOneEnemy()
@@ -195,8 +245,8 @@ public class WaveManager : MonoBehaviour
         if (pt == null) return;
 
         // Quyết định spawn melee hay ranged
-        bool shouldSpawnRanged = currentWave >= rangedStartWave 
-                                 && rangedPrefabs.Length > 0 
+        bool shouldSpawnRanged = currentWave >= rangedStartWave
+                                 && rangedPrefabs != null && rangedPrefabs.Length > 0
                                  && Random.value < GetRangedChance();
 
         GameObject prefab;
@@ -206,21 +256,33 @@ public class WaveManager : MonoBehaviour
         }
         else
         {
-            if (meleePrefabs.Length == 0) return;
+            if (meleePrefabs == null || meleePrefabs.Length == 0) return;
             prefab = meleePrefabs[Random.Range(0, meleePrefabs.Length)];
         }
+        if (prefab == null) return;
 
         // Spawn với offset ngẫu nhiên nhỏ
         Vector3 spawnPos = pt.position + new Vector3(Random.Range(-0.5f, 0.5f), Random.Range(-0.3f, 0.3f), 0);
-        GameObject enemy = Instantiate(prefab, spawnPos, Quaternion.identity);
+        
+        // Khóa tọa độ Y của bãi đáp quái vật để chỉ nằm trong vùng đường rải nhựa (Khớp với Player)
+        spawnPos.y = Mathf.Clamp(spawnPos.y, -3.8f, 0.0f);
 
-        // Áp dụng scaling độ khó
-        ApplyDifficultyScaling(enemy);
+        string poolTag = "Enemy_" + prefab.name;
 
+        GameObject enemy = null;
+        if (ObjectPool.Instance != null && ObjectPool.Instance.HasPool(poolTag))
+            enemy = ObjectPool.Instance.Get(poolTag, spawnPos, Quaternion.identity);
+
+        // Fallback nếu pool đầy
+        if (enemy == null)
+            enemy = Instantiate(prefab, spawnPos, Quaternion.identity);
+
+        // Áp dụng scaling + gán pool tag
+        ApplyDifficultyScaling(enemy, poolTag);
         enemiesAlive++;
     }
 
-    void ApplyDifficultyScaling(GameObject enemy)
+    void ApplyDifficultyScaling(GameObject enemy, string tag)
     {
         float hpMult = 1f + (currentWave - 1) * healthMultiplierPerWave;
         float speedMult = 1f + (currentWave - 1) * speedMultiplierPerWave;
@@ -228,29 +290,27 @@ public class WaveManager : MonoBehaviour
         EnemyController melee = enemy.GetComponent<EnemyController>();
         if (melee != null)
         {
-            melee.maxHealth = Mathf.RoundToInt(melee.maxHealth * hpMult);
-            melee.moveSpeed *= speedMult;
+            melee.poolTag = tag;
+            melee.ApplyScaling(hpMult, speedMult);
         }
 
         EnemyRangedController ranged = enemy.GetComponent<EnemyRangedController>();
         if (ranged != null)
         {
-            ranged.maxHealth = Mathf.RoundToInt(ranged.maxHealth * hpMult);
-            ranged.moveSpeed *= speedMult;
+            ranged.poolTag = tag;
+            ranged.ApplyScaling(hpMult, speedMult);
         }
     }
 
     float GetRangedChance()
     {
-        // Wave 3: 20%, Wave 5: 30%, Wave 10: 50%, capped at 60%
         return Mathf.Clamp(0.2f + (currentWave - rangedStartWave) * 0.05f, 0.2f, 0.6f);
     }
 
     // ─── Gọi từ enemy khi chết ────────────────────────────────────
     public void OnEnemyDeath()
     {
-        enemiesAlive--;
-        enemiesAlive = Mathf.Max(0, enemiesAlive);
+        enemiesAlive = Mathf.Max(0, enemiesAlive - 1);
     }
 
     // ─── UI ────────────────────────────────────────────────────────
