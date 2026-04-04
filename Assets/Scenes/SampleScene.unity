@@ -192,8 +192,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ceb3a3304e685d446a40a2d1ecead331, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WaveManager
-  meleePrefabs: []
-  rangedPrefabs: []
+  meleePrefabs:
+  - {fileID: 9139673423491340173, guid: 22dee079e3831f04fbf9fe790f0f16fb, type: 3}
+  - {fileID: 2355003586576975776, guid: 442c886247143354b859f512db753cde, type: 3}
+  - {fileID: 7801415399761845647, guid: 76985ac8f5d320942bd92491379c6905, type: 3}
+  rangedPrefabs:
+  - {fileID: 5153287566243075130, guid: 806360cc9396ead478b2e049dde672ad, type: 3}
+  - {fileID: 1107014666852477787, guid: 4ddf83de0860a824c82ae95045a52107, type: 3}
+  - {fileID: 5075516757545464809, guid: a9b584887cad83c4299bb6330b43e154, type: 3}
   spawnPoints: []
   startEnemyCount: 3
   enemiesPerWaveIncrease: 2
@@ -941,13 +947,23 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::AudioManager
   bgmSource: {fileID: 0}
   sfxSource: {fileID: 0}
-  bgMusic: {fileID: 0}
-  shootClips: []
-  hitClips: []
-  punchClip: {fileID: 0}
-  punch2Clip: {fileID: 0}
-  laserClip: {fileID: 0}
-  bonusClip: {fileID: 0}
+  bgMusic: {fileID: 8300000, guid: 1100f57cda62ed143a33e7a188742e64, type: 3}
+  shootClips:
+  - {fileID: 8300000, guid: 2cfbd13e889ca9b4dbb696e560caebc9, type: 3}
+  - {fileID: 8300000, guid: 339644404daea2149a86a70416d4d2e5, type: 3}
+  - {fileID: 8300000, guid: ec6af1211565f1c44b20faafba070076, type: 3}
+  - {fileID: 8300000, guid: dbb66dfa761dd6e4b8f656fce4e19328, type: 3}
+  - {fileID: 8300000, guid: cbd2d3ce539022d438e4707354403892, type: 3}
+  - {fileID: 8300000, guid: beabe5564187cf64a8ef861e25a57a95, type: 3}
+  hitClips:
+  - {fileID: 8300000, guid: ed770c5e32cf06449a77a0029c9ba0f3, type: 3}
+  - {fileID: 8300000, guid: c0f1a953ab739134fbc57b12f12694bf, type: 3}
+  - {fileID: 8300000, guid: 53e2b337a63ac844fb186019d4fc55fe, type: 3}
+  - {fileID: 8300000, guid: 0a4f3c5dee8354243b03acecf1333335, type: 3}
+  punchClip: {fileID: 8300000, guid: 9143efe9590e34c48a1b9e87a71ea8e9, type: 3}
+  punch2Clip: {fileID: 8300000, guid: ab024d6fa3d599b4ab60adf3a495c5e7, type: 3}
+  laserClip: {fileID: 8300000, guid: 865558a0eba07034d9c80f24b1aae583, type: 3}
+  bonusClip: {fileID: 8300000, guid: 537c6e270963a16428816fd01a8d8802, type: 3}
   bgmVolume: 0.3
   sfxVolume: 0.6
 --- !u!4 &745521249

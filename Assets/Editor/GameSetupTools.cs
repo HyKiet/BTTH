@@ -73,4 +73,65 @@ public class GameSetupTools : Editor
         
         Debug.Log("[GameSetupTools] ✅ Player death sprites loaded for all weapons!");
     }
+
+    [MenuItem("Tools/Fix Build References (Âm thanh & Quái vật)")]
+    public static void FixBuildReferences()
+    {
+        // 1. Fix AudioManager
+        AudioManager am = Object.FindFirstObjectByType<AudioManager>();
+        if (am != null)
+        {
+            string audioPath = "Assets/Mad Doctor Assets/Audio";
+            am.bgMusic = AssetDatabase.LoadAssetAtPath<AudioClip>($"{audioPath}/BG Music.mp3");
+            
+            var shoots = new List<AudioClip>();
+            for (int i = 1; i <= 6; i++) {
+                var clip = AssetDatabase.LoadAssetAtPath<AudioClip>($"{audioPath}/Shoot{i}.wav");
+                if (clip) shoots.Add(clip);
+            }
+            am.shootClips = shoots.ToArray();
+            
+            var hits = new List<AudioClip>();
+            for (int i = 1; i <= 4; i++) {
+                var clip = AssetDatabase.LoadAssetAtPath<AudioClip>($"{audioPath}/Hit{i}.wav");
+                if (clip) hits.Add(clip);
+            }
+            am.hitClips = hits.ToArray();
+            
+            am.punchClip = AssetDatabase.LoadAssetAtPath<AudioClip>($"{audioPath}/punch.wav");
+            am.punch2Clip = AssetDatabase.LoadAssetAtPath<AudioClip>($"{audioPath}/Punch2.wav");
+            am.laserClip = AssetDatabase.LoadAssetAtPath<AudioClip>($"{audioPath}/Laser.wav");
+            am.bonusClip = AssetDatabase.LoadAssetAtPath<AudioClip>($"{audioPath}/Bonus.wav");
+            
+            EditorUtility.SetDirty(am);
+            Debug.Log("[FixBuild] Đã nạp tất cả âm thanh cho AudioManager thành công!");
+        }
+
+        // 2. Fix WaveManager
+        WaveManager wm = Object.FindFirstObjectByType<WaveManager>();
+        if (wm != null)
+        {
+            var m_list = new List<GameObject>();
+            string[] m_paths = { "Enemy_1", "Enemy03", "Enemy05" };
+            foreach (var name in m_paths) {
+                var go = AssetDatabase.LoadAssetAtPath<GameObject>($"Assets/Mad Doctor Assets/Prefabs/{name}.prefab");
+                if (go) m_list.Add(go);
+            }
+            wm.meleePrefabs = m_list.ToArray();
+
+            var r_list = new List<GameObject>();
+            string[] r_paths = { "Enemy02", "Enemy04", "Enemy06" };
+            foreach (var name in r_paths) {
+                var go = AssetDatabase.LoadAssetAtPath<GameObject>($"Assets/Mad Doctor Assets/Prefabs/{name}.prefab");
+                if (go) r_list.Add(go);
+            }
+            wm.rangedPrefabs = r_list.ToArray();
+            
+            EditorUtility.SetDirty(wm);
+            Debug.Log("[FixBuild] Đã nạp Prefab quái vật cho WaveManager thành công!");
+        }
+        
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(UnityEngine.SceneManagement.SceneManager.GetActiveScene());
+        Debug.Log("✅ [HOÀN TẤT] Bạn hãy bấm 'Ctrl + S' để lưu Scene và có thể Build lại game!");
+    }
 }
