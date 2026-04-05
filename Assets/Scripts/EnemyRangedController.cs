@@ -89,7 +89,11 @@ public class EnemyRangedController : MonoBehaviour
             rb.linearVelocity = Vector2.zero;
             rb.gravityScale = 0f;
         }
-        if (col != null) col.enabled = true;
+        if (col != null)
+        {
+            col.enabled = true;
+            col.isTrigger = true;
+        }
         if (sr != null) sr.color = originalColor;
 
         FindPlayer();
@@ -334,7 +338,7 @@ public class EnemyRangedController : MonoBehaviour
         moveSpeed = baseMoveSpeed * speedMult;
     }
 
-    void OnCollisionEnter2D(Collision2D coll)
+    void OnTriggerEnter2D(Collider2D coll)
     {
         if (isDead) return;
         if (GameManager.Instance != null && GameManager.Instance.isGameOver) return;

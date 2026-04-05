@@ -81,7 +81,11 @@ public class EnemyController : MonoBehaviour
             rb.linearVelocity = Vector2.zero;
         }
 
-        if (col != null) col.enabled = true;
+        if (col != null)
+        {
+            col.enabled = true;
+            col.isTrigger = true; // Xóa bỏ va chạm vật lý thô cứng (đẩy nhau)
+        }
         if (sr != null) sr.color = originalColor;
 
         if (attackRange < 2.5f) attackRange = 2.5f;

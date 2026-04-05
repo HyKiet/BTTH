@@ -2066,36 +2066,8 @@ MonoBehaviour:
     fireRate: 0.3
   - weaponName: Electric Gun
     bulletPrefab: {fileID: 6191029053254428284, guid: 5e316630e44e73240bcf4aef370718d3, type: 3}
-    weaponIcon: {fileID: 0}
+    weaponIcon: {fileID: 3356526717760854866, guid: 46795d2120d0a0e4587fd1b9df06d282, type: 3}
     fireRate: 0.3
-  - weaponName: Rapid Fire
-    bulletPrefab: {fileID: 6511283089426973295, guid: f07bd7799c40fe143a8482ef9db6bbb0, type: 3}
-    weaponIcon: {fileID: 5862150014360460976, guid: 8c943cca554be07488cb65ef1aa7c89e, type: 3}
-    fireRate: 0.25
-  - weaponName: Shotgun
-    bulletPrefab: {fileID: 768777508613866177, guid: 035aea4e0499632499690c386d48392f, type: 3}
-    weaponIcon: {fileID: 8582640264360212972, guid: 90faaf35580295c4eb8a3775b5d374f2, type: 3}
-    fireRate: 0.6
-  - weaponName: Mini Gun
-    bulletPrefab: {fileID: 6511283089426973295, guid: f07bd7799c40fe143a8482ef9db6bbb0, type: 3}
-    weaponIcon: {fileID: -4086868999389135678, guid: 1f67b4cce967f3a45a3cd16912db5273, type: 3}
-    fireRate: 0.2
-  - weaponName: Laser Blaster
-    bulletPrefab: {fileID: 768777508613866177, guid: 035aea4e0499632499690c386d48392f, type: 3}
-    weaponIcon: {fileID: -2403707038808291215, guid: b70624f1c417bfc4185af2ac9846e9b5, type: 3}
-    fireRate: 0.45
-  - weaponName: Burst Rifle
-    bulletPrefab: {fileID: 6511283089426973295, guid: f07bd7799c40fe143a8482ef9db6bbb0, type: 3}
-    weaponIcon: {fileID: -6164501434553143719, guid: 5b069588d298d7c469e332dfe7174d3a, type: 3}
-    fireRate: 0.35
-  - weaponName: Heavy Canon
-    bulletPrefab: {fileID: 768777508613866177, guid: 035aea4e0499632499690c386d48392f, type: 3}
-    weaponIcon: {fileID: 3873198231511926696, guid: e7284235602eb4445b279953b330d3cd, type: 3}
-    fireRate: 0.55
-  - weaponName: Death Ray
-    bulletPrefab: {fileID: 6511283089426973295, guid: f07bd7799c40fe143a8482ef9db6bbb0, type: 3}
-    weaponIcon: {fileID: 3883278846341608578, guid: fdec88f041a483e40b9a8e82bf3f141d, type: 3}
-    fireRate: 0.15
   firePoint: {fileID: 0}
 --- !u!4 &1211511528
 Transform:
@@ -2620,6 +2592,51 @@ SpriteRenderer:
   m_SpriteTileMode: 0
   m_WasSpriteAssigned: 1
   m_SpriteSortPoint: 0
+--- !u!1 &1491618528
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1491618530}
+  - component: {fileID: 1491618529}
+  m_Layer: 0
+  m_Name: ObjectPool
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1491618529
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1491618528}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 02454de6c32fb81429f96c2b6b2de785, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ObjectPool
+  pools: []
+--- !u!4 &1491618530
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1491618528}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1591335675
 GameObject:
   m_ObjectHideFlags: 0
@@ -3272,3 +3289,4 @@ SceneRoots:
   - {fileID: 745521249}
   - {fileID: 236712231}
   - {fileID: 2082789798}
+  - {fileID: 1491618530}

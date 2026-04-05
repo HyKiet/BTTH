@@ -56,10 +56,32 @@ public class AudioManager : MonoBehaviour
         }
     }
 
+    private bool bgmStarted = false;
+
     void Start()
     {
         AutoLoadClips();
-        PlayBGM();
+    }
+
+    void Update()
+    {
+        // Khắc phục lỗi mất âm thanh trên WebGL do Autoplay Policy
+        if (!bgmStarted)
+        {
+            bool anyPress = false;
+#if ENABLE_INPUT_SYSTEM
+            if (UnityEngine.InputSystem.Keyboard.current != null && UnityEngine.InputSystem.Keyboard.current.anyKey.wasPressedThisFrame) anyPress = true;
+            if (UnityEngine.InputSystem.Mouse.current != null && (UnityEngine.InputSystem.Mouse.current.leftButton.wasPressedThisFrame || UnityEngine.InputSystem.Mouse.current.rightButton.wasPressedThisFrame)) anyPress = true;
+            if (UnityEngine.InputSystem.Touchscreen.current != null && UnityEngine.InputSystem.Touchscreen.current.primaryTouch.press.wasPressedThisFrame) anyPress = true;
+#else
+            if (Input.anyKeyDown || Input.GetMouseButtonDown(0) || Input.GetMouseButtonDown(1)) anyPress = true;
+#endif
+            if (anyPress)
+            {
+                bgmStarted = true;
+                PlayBGM();
+            }
+        }
     }
 
     void AutoLoadClips()

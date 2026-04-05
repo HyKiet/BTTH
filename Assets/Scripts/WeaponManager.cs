@@ -44,6 +44,35 @@ public class WeaponManager : MonoBehaviour
 
         playerAnimation = GetComponent<PlayerAnimation>();
 
+        // Tự động rút danh sách súng về đúng 3 loại và vá hình ảnh UI (Mọi lúc chạy trong Editor)
+#if UNITY_EDITOR
+        if (weapons != null && weapons.Count > 3)
+        {
+            weapons.RemoveRange(3, weapons.Count - 3);
+            UnityEditor.EditorUtility.SetDirty(this);
+        }
+        if (weapons != null && weapons.Count >= 3)
+        {
+            Sprite b1 = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Mad Doctor Assets/Sprites/Bullets/Bullet 1.png");
+            Sprite b2 = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Mad Doctor Assets/Sprites/Bullets/Bullet 2.png");
+            Sprite b3 = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Mad Doctor Assets/Sprites/Laser/skeleton-animation_0.png");
+            
+            if (b1 != null) weapons[0].weaponIcon = b1;
+            if (b2 != null) weapons[1].weaponIcon = b2;
+            if (b3 != null) weapons[2].weaponIcon = b3;
+
+            GameObject p1 = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Mad Doctor Assets/Prefabs/Bullet_1.prefab");
+            GameObject p2 = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Mad Doctor Assets/Prefabs/Bullet_2.prefab");
+            GameObject p3 = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Mad Doctor Assets/Prefabs/LaserBullet.prefab");
+
+            if (p1 != null) weapons[0].bulletPrefab = p1; else Debug.LogError("Failed to load Bullet_1.prefab! " + "Assets/Mad Doctor Assets/Prefabs/Bullet_1.prefab");
+            if (p2 != null) weapons[1].bulletPrefab = p2; else Debug.LogError("Failed to load Bullet_2.prefab!");
+            if (p3 != null) weapons[2].bulletPrefab = p3; else Debug.LogError("Failed to load LaserBullet.prefab!");
+            
+            Debug.Log($"Weapons configured: Pistol({weapons[0].bulletPrefab != null}), Plasma({weapons[1].bulletPrefab != null}), Laser({weapons[2].bulletPrefab != null})");
+        }
+#endif
+
         // Load sprites CHỈ cho vũ khí đầu tiên
         if (weapons.Count > 0)
         {

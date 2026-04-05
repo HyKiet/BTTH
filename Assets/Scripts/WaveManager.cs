@@ -239,33 +239,42 @@ public class WaveManager : MonoBehaviour
 
     void SpawnOneEnemy()
     {
-        if (spawnPoints == null || spawnPoints.Length == 0) return;
-
-        Transform pt = spawnPoints[Random.Range(0, spawnPoints.Length)];
-        if (pt == null) return;
-
         // Quyết định spawn melee hay ranged
         bool shouldSpawnRanged = currentWave >= rangedStartWave
                                  && rangedPrefabs != null && rangedPrefabs.Length > 0
                                  && Random.value < GetRangedChance();
 
-        GameObject prefab;
+        GameObject prefab = null;
         if (shouldSpawnRanged)
         {
             prefab = rangedPrefabs[Random.Range(0, rangedPrefabs.Length)];
         }
         else
         {
-            if (meleePrefabs == null || meleePrefabs.Length == 0) return;
-            prefab = meleePrefabs[Random.Range(0, meleePrefabs.Length)];
+            if (meleePrefabs != null && meleePrefabs.Length > 0)
+                prefab = meleePrefabs[Random.Range(0, meleePrefabs.Length)];
         }
         if (prefab == null) return;
 
-        // Spawn với offset ngẫu nhiên nhỏ
-        Vector3 spawnPos = pt.position + new Vector3(Random.Range(-0.5f, 0.5f), Random.Range(-0.3f, 0.3f), 0);
-        
-        // Khóa tọa độ Y của bãi đáp quái vật để chỉ nằm trong vùng đường rải nhựa (Khớp với Player)
-        spawnPos.y = Mathf.Clamp(spawnPos.y, -3.8f, 0.0f);
+        Vector3 spawnPos = Vector3.zero;
+        GameObject playerObj = GameObject.FindGameObjectWithTag("Player");
+        if (playerObj != null)
+        {
+            // Quái sẽ xuất hiện ngoài màn hình của Player (cách 12-20 đơn vị trên trục X)
+            float offsetX = Random.Range(12f, 20f);
+            if (Random.value > 0.5f) offsetX = -offsetX; // Quái ập tới từ 2 phía
+            
+            spawnPos.x = playerObj.transform.position.x + offsetX;
+            // Khóa tọa độ Y của bãi đáp quái vật để chỉ nằm trong vùng đường rải nhựa
+            spawnPos.y = Random.Range(-3.8f, 0.0f);
+            
+            // Không cho rớt ra vùng map quá giới hạn 
+            spawnPos.x = Mathf.Clamp(spawnPos.x, -35f, 35f);
+        }
+        else
+        {
+            spawnPos = new Vector3(Random.Range(-15f, 15f), Random.Range(-3.8f, 0.0f), 0);
+        }
 
         string poolTag = "Enemy_" + prefab.name;
 
